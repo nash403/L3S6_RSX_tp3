@@ -1,3 +1,8 @@
+/**
+ * @author Honore NINTUNZE
+ * 
+ * TP3 QUESTION 3, 4 et 5
+ */
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -7,8 +12,13 @@ import java.net.UnknownHostException;
 
 public class DNS {
 
+	/**
+	 * Methode principale qui fait la requête DNS, traduit le paquet reçu
+	 * et affiche l'ip reçue dans la réponse
+	 */
 	public static void main(String args[]) throws IOException {
 		byte[] paquetE, paquetR, ip;
+		int ipInt;
 		String question;
 		if (args.length >= 1)
 			question = args[0];
@@ -19,16 +29,22 @@ public class DNS {
 
 		afficheAnalysePaquet(paquetR);
 		ip = findIP(paquetR);
+		ipInt = (ip[0] & 0xff) * 16777216 + (ip[1] & 0xff) * 65536
+				 + (ip[2] & 0xff) * 256 + (ip[3] & 0xff);
 		System.out.println("L'URL \"" + question
-				+ "\" correspond à l'adresse IPv4 : "
+				+ "\" correspond l'entier : " + ipInt + " et à l'adresse IPv4 : "
 				+ InetAddress.getByAddress(ip));
 
 	}
 
+	/**
+	 * @param data le tableau de byte dans lequel l'IP sera cherchée
+	 */
 	public static byte[] findIP(byte[] data) {
 		int i, offsetRDLength, rdlength;
 		byte[] ip = new byte[4];
-		// TRAITEMENT DU PAQUET
+		
+		// TRAITEMENT DU PAQUET DATA
 		// on va jusqu'au début des byte de réponse
 		i = getEndOfString(data, 12) + 6;
 
@@ -39,21 +55,17 @@ public class DNS {
 			i = offsetRDLength + 4 + rdlength;
 		}
 
-		// CODAGE DES 4 OCTETS DE L'IP DANS UN SEUL INT (qui est codé sur 4
-		// octets)
+		// CODAGE DES 4 OCTETS DE L'IP DANS UN TABLEAU DE 4 OCTETS
 		ip[0] = data[i + 10];
 		ip[1] = data[i + 11];
 		ip[2] = data[i + 12];
 		ip[3] = data[i + 13];
-		// ip = (data[i + 10] & 0xff) * 16777216 + (data[i + 11] & 0xff) * 65536
-		// + (data[i + 12] & 0xff) * 256 + (data[i + 13] & 0xff);
 		return ip;
 	}
 
 	/**
-	 * @param port
-	 * @param dataE
-	 * @return
+	 * @param dataE le paquet qui contient une demande dns
+	 * @return le paquet reçu en réponse à la requête dns
 	 * @throws UnknownHostException
 	 * @throws SocketException
 	 * @throws IOException
@@ -70,6 +82,7 @@ public class DNS {
 		sk.send(paquetE);
 		sk.receive(paquetR);
 		sk.close();
+		
 		System.out.println("=> Request sent to IP " + paquetE.getAddress());
 		System.out
 				.println("=> Answer received from IP " + paquetR.getAddress());
@@ -98,6 +111,11 @@ public class DNS {
 		return dataR;
 	}
 
+	/**
+	 * @param requete l'URL sous forme de chaine de caractère
+	 * 			qui sera transformée en requete dns dans un tableau de byte
+	 * @return le tableau de byte correspondant à une requete dns
+	 */
 	public static byte[] createRequestData(String requete) {
 		int totalLength = 18 + requete.length();
 		int i;
@@ -105,7 +123,7 @@ public class DNS {
 		// DECOUPAGE DE LA CHAINE EN SOUS CHAINES
 		String[] labelSplit = requete.split("\\.");
 
-		// REMPLISSAGE DU SQUELETTE DE REQUETE
+		// REMPLISSAGE DU SQUELETTE DE LA REQUETE
 		requestInByte[0] = (byte) 0x08;
 		requestInByte[1] = (byte) 0xbb;
 		requestInByte[2] = requestInByte[5] = requestInByte[totalLength - 1] = requestInByte[totalLength - 3] = (byte) 0x01;
@@ -123,10 +141,11 @@ public class DNS {
 		return requestInByte;
 	}
 
-	/**
-	 * @param msgR
+	/** Affiche les données d'un paquet dns
+	 * @param msg les données d'un paquet dns dont les données
+	 * 				sont analysées et affichées sur la sortie standard
 	 */
-	public static void afficheAnalysePaquet(byte[] msgR) {
+	public static void afficheAnalysePaquet(byte[] msg) {
 		int i, nbAutres, nbReponses, nbAutorites;
 		System.out.println("\nANALYSE DU PAQUET RECU");
 		System.out.println("----------------------");
@@ -135,51 +154,52 @@ public class DNS {
 		System.out.println("\n----------ENTETE----------\n");
 		i = 0;
 		System.out.println("IDENTIFIANT : "
-				+ getHexaString(getShortValue(msgR, i)));
+				+ getHexaString(getShortValue(msg, i)));
 		i += 2;
 
-		System.out.println(paramHexaToString(getShortValue(msgR, i)));
+		System.out.println(paramHexaToString(getShortValue(msg, i)));
 		i += 2;
 
 		System.out.println("QDCount (Question) : "
-				+ getHexaString(getShortValue(msgR, i)));
+				+ getHexaString(getShortValue(msg, i)));
 		i += 2;
 
-		nbReponses = getShortValue(msgR, i);
+		nbReponses = getShortValue(msg, i);
 		System.out.println("ANCount (Reponse) : " + getHexaString(nbReponses));
 		i += 2;
 
-		nbAutorites = getShortValue(msgR, i);
+		nbAutorites = getShortValue(msg, i);
 		System.out
 				.println("NSCount (Autorité) : " + getHexaString(nbAutorites));
 		i += 2;
 
-		nbAutres = getShortValue(msgR, i);
+		nbAutres = getShortValue(msg, i);
 		System.out.println("ARCount (Additionnelles) : "
 				+ getHexaString(nbAutres));
 		i += 2;
 
 		System.out.print("URL (requête) : ");
-		i = printByteToString(msgR, i);
+		i = printByteToString(msg, i);
 
 		System.out.println("TYPE (host address) : "
-				+ intToHexaString(getShortValue(msgR, i), 4));
+				+ intToHexaString(getShortValue(msg, i), 4));
 		i += 2;
 
 		System.out.println("CLASS (internet) : "
-				+ intToHexaString(getShortValue(msgR, i), 4));
+				+ intToHexaString(getShortValue(msg, i), 4));
 		i += 2;
 
 		// AFFICHAGE REPONSES, AUTORITES ET INFO COMPLEMENTAIRES
-		afficheReponse(msgR, i, nbAutres, nbReponses, nbAutorites);
+		afficheReponse(msg, i, nbAutres, nbReponses, nbAutorites);
 	}
 
-	/**
-	 * @param msg
-	 * @param offset
-	 * @param nbAutres
-	 * @param nbReponses
-	 * @param nbAutorites
+	/** Affiche la partie des réponses d'un paquet dns
+	 * @param msg les données d'un paquet dns dont les données
+	 * 				sont analysées et affichées sur la sortie standard
+	 * @param offset l'indice à partir duquel les données commencent
+	 * @param nbAutres le nombre de données supplémentaires les données
+	 * @param nbReponses le nombre de réponses les données
+	 * @param nbAutorites le nombre d'autorités dans les données
 	 */
 	public static void afficheReponse(byte[] msg, int offset, int nbAutres,
 			int nbReponses, int nbAutorites) {
@@ -203,9 +223,9 @@ public class DNS {
 		}
 	}
 
-	/**
-	 * @param msg
-	 * @param offset
+	/** Affiche les données d'une réponse dns
+	 * @param msg le paquet de la requete dns
+	 * @param offset l'indice où commence les données à afficher
 	 */
 	public static int afficheDonnees(byte[] msg, int offset) {
 		int i = offset;
@@ -243,6 +263,12 @@ public class DNS {
 		return i;
 	}
 
+	/** Affiche une chaine de caractère représentant une suite de byte
+	 * se terminant pas un byte nul
+	 * @param b le paquet de la requete dns
+	 * @param offset l'indice où commence la suite de byte à afficher
+	 * 
+	 */
 	public static int printByteToString(byte[] b, int offset) {
 		int i = offset, j;
 		StringBuilder sb = new StringBuilder("");
@@ -258,7 +284,7 @@ public class DNS {
 		return i;
 	}
 
-	public static int getEndOfString(byte[] t, int i) {
+	/*public static int getEndOfString(byte[] t, int i) {
 		while (t[i] != 0) {
 			int c = t[i] & 0xff;
 			if (c >= 192)
@@ -267,26 +293,51 @@ public class DNS {
 				i += c + 1;
 		}
 		return i + 1;
-	}
+	}*/
 
+	/**
+	 * @param valeur l'entier à convertir
+	 * @param longueur la taille minimum de la taille que l'on veut
+	 * @return la représentation binaire d'un entier
+	 * 
+	 */
 	public static String enBinaireDeTaille(int valeur, int longueur) {
 		String binaire = Integer.toBinaryString(valeur);
 		return zeroPoidsFort(longueur, binaire);
 	}
-
+	
+	/**
+	 * @param valeur l'entier à convertir
+	 * @param longueur la taille minimum de la taille que l'on veut
+	 * @return la représentation hexdécimale d'un entier
+	 * 
+	 */
 	public static String enHexaDeTaille(int valeur, int longueur) {
 		String hexa = Integer.toHexString(valeur);
 		return zeroPoidsFort(longueur, hexa);
 	}
 
-	public static String zeroPoidsFort(int longueur, String binaire) {
+	/**
+	 * @param s la à concaténer
+	 * @param longueur la longueur de la chaine que l'on
+	 * 			veut obtenir, si la longueur de s est plus
+	 * 			petite des '0' sont rajoutés en début de chaine
+	 * @return la représentation de l'entier avec 
+	 * 			des zero de poids fort en début de chaine
+	 * 
+	 */
+	public static String zeroPoidsFort(int longueur, String s) {
 		StringBuilder zeroDePoidsFort = new StringBuilder();
-		int longBinanire = binaire.length();
+		int longBinanire = s.length();
 		for (int i = 0; i < longueur - longBinanire; i++)
 			zeroDePoidsFort.append("0");
-		return zeroDePoidsFort + binaire;
+		return zeroDePoidsFort + s;
 	}
 
+	/**
+	 * Renvoie la chaine qui représente les paramètres dans un paquet 
+	 * dns selon la valeur du paramètres.
+	 */
 	public static String paramHexaToString(int shortValue) {
 		String repBin = enBinaireDeTaille(shortValue, 16);
 		char[] repBinTab = repBin.toCharArray();
@@ -308,23 +359,40 @@ public class DNS {
 		return res.toString();
 	}
 
+	/**
+	 * @param t le paquet dns
+	 * @param i l'offset
+	 * @return la valeur entière de 2 octets pris ensemble
+	 */
 	public static int getShortValue(byte[] t, int i) {// valeur déc de 2 octets
 		return (t[i] & 0xff) * 256 + (t[i + 1] & 0xff);
 	}
 
+	/** Donne la représentation hexadécimale d'un entier i
+	 * sur 2 caractères au moins
+	 */
 	public static String getHexaString(int i) {
 		return intToHexaString(i, 2);
 	}
 
+	/** Donne la représentation hexadécimale d'un entier i
+	 * sur longueur caractères au moins
+	 */
 	public static String intToHexaString(int i, int longueur) {// hexa en string
 		String res = Integer.toHexString(i & 0xffff);
 		return zeroPoidsFort(longueur, res);
 	}
 
+	/** Donne la représentation décimale d'un entier i
+	 * sur 3 caractères au moins
+	 */ 
 	public static String intToDecString(int i) {
 		return intToDecString(i, 3);
 	}
 
+	/** Donne la représentation décimale d'un entier i
+	 * sur longueur caractères au moins
+	 */
 	public static String intToDecString(int i, int longueur) {
 		String res = Integer.toString(i & 0xffff);
 		return zeroPoidsFort(longueur, res);
