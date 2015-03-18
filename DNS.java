@@ -284,7 +284,10 @@ public class DNS {
 		return i;
 	}
 
-	/*public static int getEndOfString(byte[] t, int i) {
+	/** Calcule la fin d'une chaine de caractère dans un 
+	 * tableau de byte t à partir d'un offset i donné
+	 */
+	public static int getEndOfString(byte[] t, int i) {
 		while (t[i] != 0) {
 			int c = t[i] & 0xff;
 			if (c >= 192)
@@ -293,7 +296,7 @@ public class DNS {
 				i += c + 1;
 		}
 		return i + 1;
-	}*/
+	}
 
 	/**
 	 * @param valeur l'entier à convertir
